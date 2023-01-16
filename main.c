@@ -5,16 +5,19 @@
 #include<unistd.h>
 #include<sys/types.h>
 #include<sys/wait.h>
-#include<readline/readline.h>
 #include<readline/history.h>
+#include<readline/readline.h>
+#include<dirent.h>
+#include<errno.h>
+int mkdir(const char *pathname, mode_t mode);
 
-#define MAXCMD 1000 // max number of letters to be supported
-#define MAXLISTCMD 100 // max number of commands to be supported
+#define MAXCMD 1000 
+#define MAXLISTCMD 100 
 
 // practic functia de clear la shell, prima parte pana la \ muta cursorul stanga sus, iar a 2 sterge continutu
 #define clear() printf("\033[H\033[J")
 
-// Greeting shell during startup
+
 void start_shell()
 {
 	clear();
@@ -26,7 +29,6 @@ void start_shell()
 	clear();
 }
 
-// Function to take input
 int get_input(char* str)
 {
 	char* buf;
@@ -49,7 +51,7 @@ void get_dir()
 	printf("\nDir: %s", cwd);
 }
 
-// Aici se executa functiile sistem built-in ( gen ls saumai st iu eu ce, alea de poti sa le faci cu execve direct)
+// Aici se executa functiile sistem built-in 
 void exec_cmd(char** parsed_cmd)
 {
 
@@ -76,24 +78,108 @@ void get_help()
 {
 	puts("\n```WELCOME TO OUR SHELL```"
 		"\n Available commands : "
-		"\n->cd"
-		"\n->ls"
-		"\n->exit"
-		"\n->all other general commands available in UNIX shell");
+		"\n->our_cd"
+		"\n->our_mkdir"
+		"\n->our_dir"
+		"\n->our_rm"
+		"\n->our_ls"
+		"\n->our_exit"
+		"\n->our_rm_dir"
+		"\n->all other general commands available in UNIX shell, but of course, without our. So if you execute ls, it will still work.");
 
 	return;
 }
 
+void get_mkdir(char** parsed_cmd)
+{
+	if(mkdir(parsed_cmd[1],0777) == -1 )
+	{
+		perror("Unable to create directory\n");
+	}
+	else 
+	{
+		printf("Directory %s  created with succes!\n",parsed_cmd[1]);
+	}
+} 
+
+void get_cd(char** parsed_cmd)
+{
+	if(parsed_cmd[1] == NULL )
+	{
+		printf("You did not specify where to go. Repeat the cd command by using cd <path> ");
+		}
+	if(chdir(parsed_cmd[1]!=0))
+	{
+		perror("Change failed.");
+	}
+
+}
+/*
+practic in structul definit dirent avem d_reclen care e length , Si d_name care este numele fisierului
+*/
+
+void get_ls()
+{
+	int x;
+
+	struct dirent **d;
+
+	x = scandir(".", &d,NULL, alphasort);
+
+	if(x<0)
+	{
+		perror("Cannot scan the directory");
+	}
+	else {
+		while(x--)
+		{
+			printf("%s      ", d[x]->d_name);
+			free(d[x]);
+			
+		}
+
+		free(d);
+	}
+}
+
+void get_rmdir(char** parsed_cmd)
+{
+	if(rmdir(parsed_cmd[1]) == -1)
+	{
+		perror("Can't delete this directory");
+
+	}
+	else
+	{
+		printf("Directory with name : %s deleted succesfully",parsed_cmd[1]);
+	}
+}
+
+void get_rm(char** parsed_cmd)
+{
+	if(remove(parsed_cmd[1]) == -1 )
+	{
+		perror("Unable to delete this file");
+	}
+	else 
+	{
+		printf("Deleted file with name : %s succesfully", parsed_cmd[1]);
+	}
+}
 // Aici executam comenzi custom specifice shell ului nostru 
 int own_cmd(char** parsed_cmd)
 {
-	int nr_cmd = 3, i, switch_cmd = 0;
+	int nr_cmd = 7, i, switch_cmd = 0;
 	char* Lista_cmd[nr_cmd];
 	char* user_name;
 
-	Lista_cmd[0] = "exit";
-	Lista_cmd[1] = "cd";
-	Lista_cmd[2] = "help";
+	Lista_cmd[0] = "our_exit";
+	Lista_cmd[1] = "our_cd";
+	Lista_cmd[2] = "our_mkdir";
+	Lista_cmd[3] = "our_help";
+	Lista_cmd[4] = "our_rm_dir";
+	Lista_cmd[5] = "our_rm";
+	Lista_cmd[6] = "our_ls";
 
 
 	for (i = 0; i < nr_cmd; i++) {
@@ -108,11 +194,23 @@ int own_cmd(char** parsed_cmd)
 		printf("\n Have a nice day ! \n");
 		exit(0);
 	case 2:
-		chdir(parsed_cmd[1]);
+		get_cd(parsed_cmd);
 		return 1;
 	case 3:
+		get_mkdir(parsed_cmd);
+		return 1;
+	case 4:
 		get_help();
 		return 1;
+	case 5:
+		get_rmdir(parsed_cmd);
+		return 1;
+	case 6:
+		get_rm(parsed_cmd);
+		return 1;
+	case 7:
+		get_ls();
+		return 1;	
 	default:
 		break;
 	}
@@ -160,28 +258,17 @@ int main()
 	start_shell();
 
 	while (1) {
-		// print shell line
 		get_dir();
-		// take input
 		if (get_input(input_cmd))
 			continue;
-		// process
+		
 		execFlag = process_cmd(input_cmd,
 		parsed_cmd, parsed_cmd_piped);
-        /*
-        0 daca nu e nici o comanda
-        1 daca e o comanda simpla
-        2 daca e comanda piped ( adica cu | )
-        */
-		// execute
-        
+
 		if (execFlag == 1)
 			exec_cmd(parsed_cmd);
 
-        /*
-		if (execFlag == 2)
-			exec_cmd_piped(parsed_cmd, parsed_cmd_piped);
-            */
+
 	}
 	return 0;
 }
